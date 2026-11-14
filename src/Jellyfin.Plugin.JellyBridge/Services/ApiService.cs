@@ -254,6 +254,14 @@ public class ApiService
             typeof(List<JellyseerrNetwork>),
             description: "Get TV watch providers"
         ),
+
+        // TV details (seasons + per-season media status) - fork: per-season requests
+        [JellyseerrEndpoint.TvDetails] = new JellyseerrEndpointConfig(
+            "/api/v1/tv/{tmdbId}",
+            typeof(JellyseerrTvDetails),
+            requiresTemplateValues: true,
+            description: "Get TV show details"
+        ),
     };
 
     /// <summary>

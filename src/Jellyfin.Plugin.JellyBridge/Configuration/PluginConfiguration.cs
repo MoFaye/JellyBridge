@@ -74,7 +74,7 @@ public class PluginConfiguration : BasePluginConfiguration
         { nameof(DefaultMoviesPromo), true },
         { nameof(CustomSeriesPromo), string.Empty },
         { nameof(DefaultSeriesPromo), true },
-        { nameof(PromoVideoDurationSeconds), 10 },
+        { nameof(PromoVideoDurationSeconds), 1 }, // fork: shortest allowed placeholder (config page min is 1)
         { nameof(JellyBridgeTempDirectory), Path.Combine(Path.GetTempPath(), "JellyBridge") },
 
         // Sort Discover Content

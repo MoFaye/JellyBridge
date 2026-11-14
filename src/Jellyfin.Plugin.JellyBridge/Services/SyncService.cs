@@ -22,6 +22,7 @@ public partial class SyncService
     private readonly DiscoverService _discoverService;
     private readonly FavoriteService _favoriteService;
     private readonly MetadataService _metadataService;
+    private readonly PlaceholderUserDataService _placeholderUserDataService;
     
 
     public SyncService(
@@ -31,8 +32,10 @@ public partial class SyncService
         RefreshService refreshService,
         DiscoverService discoverService,
         FavoriteService favoriteService,
-        MetadataService metadataService)
+        MetadataService metadataService,
+        PlaceholderUserDataService placeholderUserDataService)
     {
+        _placeholderUserDataService = placeholderUserDataService;
         _logger = new DebugLogger<SyncService>(logger);
         _apiService = apiService;
         _bridgeService = bridgeService;
@@ -160,6 +163,14 @@ public partial class SyncService
             
             await Task.WhenAll(ignoreTask, placeholderMovieTask, placeholderShowTask);
 
+            // Step 8b (fork: per-season requests): one placeholder per requestable season ("Season NN/SNNE9999.mp4")
+            var (seasonsCreated, seasonsRemoved) = await _discoverService.EnsureSeasonPlaceholdersAsync(unmatchedShows);
+            _logger.LogDebug("Step 8b: Season placeholders created: {Created}, season folders removed: {Removed}", seasonsCreated, seasonsRemoved);
+
+            // Step 8c (fork): keep placeholders out of Continue Watching / Next Up (also fixes state from older versions)
+            var resetUserData = _placeholderUserDataService.ResetPlaceholderPlaybackState();
+            _logger.LogDebug("Step 8c: Reset playback state of {Count} placeholder user data records", resetUserData);
+
             // Step 7 (again): Gather ignore results and add to appropriate collections
             var (newIgnored, existingIgnored) = await ignoreTask;
             result.ItemsSkipped.AddRange(existingIgnored);
@@ -173,8 +184,8 @@ public partial class SyncService
 
             // Step 9: Provide refresh plan back to caller; orchestration occurs after both syncs complete
             // Only set refresh plan if there are added items or hidden items
-            var hasAddedItems = result.ItemsAdded.Count > 0;
-            var hasHiddenItems = result.ItemsHidden.Count > 0;
+            var hasAddedItems = result.ItemsAdded.Count > 0 || seasonsCreated > 0;
+            var hasHiddenItems = result.ItemsHidden.Count > 0 || seasonsRemoved > 0;
             
             if (hasAddedItems || hasHiddenItems)
             {
@@ -279,17 +290,19 @@ public partial class SyncService
             var (requestResults, blockedItems) = await _favoriteService.RequestFavorites(unrequestedFavoritesWithJellyseerrUser);
 
             // Add requests to unified collection
-            result.ItemsCreated.AddRange(requestResults.Select(r => r.request).Where(r => r != null));
+            // fork: per-season requests - several season items can share one combined request
+            result.ItemsCreated.AddRange(requestResults.Select(r => r.request).Where(r => r != null).Distinct());
             
             // Add blocked items to unified collection
             result.ItemsBlocked.AddRange(blockedItems);
             
             // Step 6: For requested items, unmark as favorite for the user and create an .ignore file in each bridge item directory
             _logger.LogDebug("Step 6: Unfavoriting requested items and creating ignore files");
-            var (newlyIgnoredItems, clearedItems) = await _favoriteService.ClearAndIgnoreRequestedAsync();
+            var (newlyIgnoredItems, clearedItems, hiddenSeasons) = await _favoriteService.ClearAndIgnoreRequestedAsync();
             result.ItemsHidden.AddRange(newlyIgnoredItems);
             result.ItemsCleared.AddRange(clearedItems);
-            _logger.LogDebug("Step 6: Hidden {NewlyIgnored} items, cleared {ClearedCount} items", newlyIgnoredItems.Count, clearedItems.Count);
+            _logger.LogDebug("Step 6: Hidden {NewlyIgnored} items and {HiddenSeasons} requested seasons, cleared {ClearedCount} items",
+                newlyIgnoredItems.Count, hiddenSeasons.Count, clearedItems.Count);
 
             //Step 8: Check requests again and remove .ignore files for items that are no longer in the requested items in Jellyseerr
             _logger.LogDebug("Step 7: Removing .ignore files for fully declined requests");
@@ -299,7 +312,7 @@ public partial class SyncService
 
             // Step 9: Provide refresh plan back to caller; orchestration occurs after both syncs complete
             // Only set refresh plan if there are added items or hidden items
-            var hasHiddenItems = result.ItemsHidden.Count > 0;
+            var hasHiddenItems = result.ItemsHidden.Count > 0 || hiddenSeasons.Count > 0;
             var hasUnhiddenItems = result.ItemsUnhidden.Count > 0;
 
             if (hasHiddenItems || hasUnhiddenItems)

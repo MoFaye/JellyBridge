@@ -58,9 +58,14 @@ namespace Jellyfin.Plugin.JellyBridge.Services
             
             // Register placeholder video generator as transient to avoid early initialization
             serviceCollection.AddTransient<PlaceholderVideoGenerator>();
+
+            // fork: placeholder user data cleanup (Continue Watching / Next Up)
+            serviceCollection.AddTransient<PlaceholderUserDataService>();
             
             // Register hosted services
             serviceCollection.AddHostedService<FavoriteEventHandler>();
+            // fork: keep placeholders out of Continue Watching / Next Up
+            serviceCollection.AddHostedService<PlaceholderPlaybackGuard>();
 
             // Register controllers (organized by configuration page sections)
             serviceCollection.AddScoped<Controllers.PluginConfigurationController>();

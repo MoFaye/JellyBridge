@@ -6,6 +6,14 @@ This plugin has been *fully tested using Jellyfin 10.10.7 and 10.11.\* with Jell
 
 # 📣 Release Notes
 
+## Version 4.1.12.1 (fork: per-season requests) 🍴
+Local fork of v4.1 (4.1.12.0, Jellyfin 12), same plugin GUID. Not an upstream release.
+- Each Discover show gets one placeholder per requestable season (`Season NN/SNNE9999.mp4` + `season.nfo`/episode NFO); `Season 00/S00E9999.mp4` (series promo, used for sorting) is unchanged. Seasons Seerr reports as available, pending, processing or blocklisted, or that are part of a non-declined request, get no placeholder; placeholder-only folders for such seasons are removed on the next sync.
+- Favoriting a Season requests only that season (`seasons: [n]`); several seasons of one show favorited by the same user are combined into one request. Favoriting the Series keeps the old behaviour (`all`, or `[1]` with Request First Season). A requested season is hidden with an `.ignore` in its own folder (the show and other seasons stay); it is unhidden when all its requests are declined.
+- Placeholders are kept out of Continue Watching and Next Up: after playback the resume position is reset, season placeholders are never Played, and placeholder episodes get no Last Played date (PlayCount untouched). Each sync also cleans up older playback state.
+- Default promo video length is 1 second.
+- Fixes: existing Seerr requests were never read (`estimatedCompletionTime: null` in download status broke the request list); Jellyfin 12 did not notice new `.ignore` files until a restart (its `.ignore` directory cache is now cleared before each JellyBridge refresh).
+
 ## Version 4.0 🆕
 - Updated plugin for compatibility with Jellyfin v12.0!
 
