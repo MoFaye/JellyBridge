@@ -97,7 +97,15 @@ public class CleanupService
                 processedMovies.Count + processedShows.Count, deletedMovies.Count + deletedShows.Count);
 
             // Run placeholder video creation and collect created items (skip the folders deleted above)
-            var processedPlaceholders = await CreateMissingPlaceholderVideosAsync(allItems.Except(deletedItems).ToList());
+            var remainingItems = allItems.Except(deletedItems).ToList();
+            var processedPlaceholders = await CreateMissingPlaceholderVideosAsync(remainingItems);
+
+            // Titles the sync no longer fetches keep their placeholder until retention; give them the title promo once their artwork is in
+            var upgradedPromos = await _discoverService.UpgradeDefaultPromosAsync(_bridgeService.FilterAlreadyIgnoredItems(remainingItems));
+            if (upgradedPromos > 0)
+            {
+                _logger.LogDebug("Replaced {Count} default promos with title promos", upgradedPromos);
+            }
             result.ItemsCreated.AddRange(processedPlaceholders);
 
             // Determine refresh plan
