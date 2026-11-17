@@ -100,11 +100,11 @@ public class CleanupService
             var remainingItems = allItems.Except(deletedItems).ToList();
             var processedPlaceholders = await CreateMissingPlaceholderVideosAsync(remainingItems);
 
-            // Titles the sync no longer fetches keep their placeholder until retention; give them the title promo once their artwork is in
-            var upgradedPromos = await _discoverService.UpgradeDefaultPromosAsync(_bridgeService.FilterAlreadyIgnoredItems(remainingItems));
-            if (upgradedPromos > 0)
+            // Titles the sync no longer fetches keep their placeholder until retention; keep their promo current meanwhile
+            var redrawnPromos = await _discoverService.RedrawStalePromosAsync(_bridgeService.FilterAlreadyIgnoredItems(remainingItems));
+            if (redrawnPromos > 0)
             {
-                _logger.LogDebug("Replaced {Count} default promos with title promos", upgradedPromos);
+                _logger.LogDebug("Redrew {Count} placeholders with the current title promo", redrawnPromos);
             }
             result.ItemsCreated.AddRange(processedPlaceholders);
 
